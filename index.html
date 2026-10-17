@@ -1,0 +1,1217 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lucky 下樓梯</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0b14; --panel: #1b1826; --text: #f4f1e8; --muted: #a49fb8;
+    --red: #e8322a; --red-dk: #8f1a14; --gold: #ffb52e; --line: #3a3550; --cyan: #4df0ff;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background-color: var(--bg);
+    background-image: linear-gradient(#ffffff06 1px, transparent 1px), linear-gradient(90deg, #ffffff06 1px, transparent 1px);
+    background-size: 8px 8px;
+    color: var(--text);
+    font-family: "DotGothic16", "PingFang TC", "Noto Sans TC", monospace;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); overflow: hidden;
+    user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+  .wrap { position: relative; width: min(400px, calc(100vw - 32px), calc((100dvh - 110px) * 2 / 3)); aspect-ratio: 2 / 3; container-type: inline-size; }
+  #game {
+    width: 100%; height: 100%; display: block;
+    box-shadow: 0 0 0 4px #000, 0 0 0 8px var(--line), 0 0 0 12px #000, 0 24px 50px rgba(0,0,0,.7);
+    background: #111;
+  }
+  .overlay {
+    position: absolute; inset: 0; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3cqw;
+    background: rgba(13,11,20,.88);
+    text-align: center; padding: 4.5cqw;
+  }
+  .overlay.hidden { display: none; }
+  .logo { font-family: "Press Start 2P", monospace; font-size: 7cqw; line-height: 1.25; color: var(--red); text-shadow: 0.8cqw 0.8cqw 0 #000; }
+  .logo small { display: block; font-family: "DotGothic16", sans-serif; font-size: 5.6cqw; color: var(--text); margin-top: 1cqw; }
+  .overlay p { color: var(--muted); font-size: 3.5cqw; line-height: 1.5; }
+  .big { font-family: "Press Start 2P", monospace; font-size: 10cqw; color: var(--gold); text-shadow: 1cqw 1cqw 0 #000; line-height: 1.2; }
+
+  .name { display: flex; align-items: center; gap: 2cqw; width: 100%; }
+  .name label { font-size: 3.6cqw; color: var(--muted); white-space: nowrap; }
+  .name input {
+    flex: 1; min-width: 0; font-family: inherit; font-size: 4.2cqw; color: #fff; background: #0a0910;
+    border: 0; padding: 1.8cqw 2.5cqw; outline: none;
+    box-shadow: inset 0 0 0 .8cqw var(--line);
+  }
+  .name input:focus { box-shadow: inset 0 0 0 .8cqw var(--cyan); }
+  .name input.bad { box-shadow: inset 0 0 0 .8cqw var(--red); animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-1.5cqw); } 75% { transform: translateX(1.5cqw); } }
+
+  .cities { display: grid; grid-template-columns: 1fr 1fr; gap: 3.5cqw; width: 100%; }
+  .city {
+    border: 0; padding: 0; cursor: pointer; background: #000; color: var(--text); font-family: inherit; text-align: left;
+    box-shadow: 0 0 0 1cqw #000, 0 0 0 1.8cqw var(--line);
+    transition: transform .1s;
+  }
+  .city:hover, .city:focus-visible { outline: none; transform: translateY(-1cqw); box-shadow: 0 0 0 1cqw #000, 0 0 0 1.8cqw var(--gold); }
+  .city canvas { width: 100%; aspect-ratio: 170 / 150; display: block; }
+  .city .meta { padding: 1.8cqw 2.4cqw 2.2cqw; background: var(--panel); }
+  .city b { display: block; font-size: 3.8cqw; font-weight: normal; }
+  .city .tw { display: block; color: var(--cyan); font-size: 2.9cqw; margin-top: .6cqw; line-height: 1.35; }
+  .city small { display: block; color: var(--muted); font-size: 2.8cqw; margin-top: .6cqw; }
+
+  .btns { display: flex; gap: 3.5cqw; flex-wrap: wrap; justify-content: center; }
+  button.px {
+    border: 0; cursor: pointer; padding: 2.6cqw 4.6cqw; font-family: inherit; font-size: 4cqw; color: #fff;
+    background: var(--red);
+    box-shadow: inset -1cqw -1cqw 0 var(--red-dk), inset 1cqw 1cqw 0 #ff7a5c, 0 0 0 1cqw #000;
+  }
+  button.px.ghost { background: #3a3550; box-shadow: inset -1cqw -1cqw 0 #24203a, inset 1cqw 1cqw 0 #5a5478, 0 0 0 1cqw #000; }
+  button.px.sm { font-size: 3.4cqw; padding: 2cqw 3.6cqw; }
+  button.px:active { transform: translateY(.6cqw); }
+
+  /* 排行榜 */
+  .tabs { display: flex; gap: 2cqw; }
+  .tabs button {
+    border: 0; cursor: pointer; font-family: inherit; font-size: 3.6cqw; padding: 1.6cqw 3.4cqw; color: var(--muted); background: #0a0910;
+    box-shadow: inset 0 0 0 .7cqw var(--line);
+  }
+  .tabs button[aria-selected="true"] { color: #000; background: var(--gold); box-shadow: inset 0 0 0 .7cqw #000; }
+  ol.lb { list-style: none; width: 100%; background: #0a0910; box-shadow: inset 0 0 0 .7cqw var(--line); padding: 1.6cqw 0; }
+  ol.lb li { display: grid; grid-template-columns: 9cqw 1fr auto 13cqw; align-items: center; gap: 2cqw; padding: .9cqw 3.4cqw; font-size: 3.5cqw; }
+  ol.lb li .rk { font-family: "Press Start 2P", monospace; font-size: 2.8cqw; color: var(--muted); }
+  ol.lb li:nth-child(1) .rk { color: #ffd23f; } ol.lb li:nth-child(2) .rk { color: #d8dce6; } ol.lb li:nth-child(3) .rk { color: #e39b5a; }
+  ol.lb li .nm { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ol.lb li .fl { font-family: "Press Start 2P", monospace; font-size: 2.8cqw; color: var(--gold); }
+  ol.lb li .dt { font-size: 2.8cqw; color: var(--muted); text-align: right; }
+  ol.lb li.me { background: rgba(77,240,255,.14); }
+  ol.lb li.me .nm { color: var(--cyan); }
+  ol.lb li.empty { display: block; text-align: center; color: var(--muted); padding: 4cqw; }
+  ol.lb.compact li { padding: .5cqw 3.4cqw; font-size: 3.1cqw; }
+  .note { font-size: 2.8cqw !important; }
+
+  details.rules { width: 100%; font-size: 3.2cqw; color: #d6d1e6; text-align: left; }
+  details.rules summary { cursor: pointer; color: var(--muted); text-align: center; list-style: none; font-size: 3.3cqw; }
+  details.rules summary::-webkit-details-marker { display: none; }
+  .legend { display: grid; grid-template-columns: auto 1fr; gap: 1cqw 2.5cqw; margin-top: 1.6cqw; padding: 2.2cqw 3cqw; background: var(--panel); box-shadow: 0 0 0 1cqw #000; }
+  .legend i { display: inline-block; width: 8cqw; height: 2.4cqw; margin-top: 1cqw; box-shadow: 0 0 0 .5cqw #000; }
+
+  .pad { display: none; gap: 14px; width: min(400px, calc(100vw - 32px)); }
+  .pad button {
+    flex: 1; height: 58px; border: 0; background: var(--panel); color: #fff; font-size: 24px; font-family: "Press Start 2P", monospace; touch-action: none;
+    box-shadow: inset -4px -4px 0 #0f0d18, inset 4px 4px 0 #2e2a40, 0 0 0 4px #000;
+  }
+  .pad button.on { background: var(--red); box-shadow: inset -4px -4px 0 var(--red-dk), inset 4px 4px 0 #ff7a5c, 0 0 0 4px #000; }
+  @media (pointer: coarse) { .pad { display: flex; } }
+  .tip { font-size: 13px; color: var(--muted); }
+  .fan { font-size: 11px; color: var(--muted); opacity: .7; }
+  @media (pointer: coarse) { .tip { display: none; } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="game" width="200" height="300"></canvas>
+
+    <div class="overlay" id="menu">
+      <div class="logo">LUCKY<small>下樓梯</small></div>
+      <div class="name">
+        <label for="playerName">你的名字</label>
+        <input id="playerName" maxlength="10" placeholder="輸入名字才能上榜" autocomplete="nickname">
+      </div>
+      <div class="cities">
+        <button class="city" data-city="la">
+          <canvas width="170" height="150"></canvas>
+          <div class="meta"><b>美國・洛杉磯</b><span class="tw">特殊：地震來襲時階梯會左右晃</span><small class="best" data-city="la"></small></div>
+        </button>
+        <button class="city" data-city="bcn">
+          <canvas width="170" height="150"></canvas>
+          <div class="meta"><b>西班牙・巴塞隆納</b><span class="tw">特殊：聖家堂工地的鋼樑會移動</span><small class="best" data-city="bcn"></small></div>
+        </button>
+      </div>
+      <div class="btns">
+        <button class="px sm ghost" id="boardBtn">🏆 排行榜</button>
+      </div>
+      <details class="rules">
+        <summary>▼ 玩法說明</summary>
+        <div class="legend">
+          <i style="background:#4df0ff"></i><span>能量板：回復 1 點生命</span>
+          <i style="background:#ff2a6d"></i><span>雷射尖刺：扣 5 點生命</span>
+          <i style="background:#ffb000"></i><span>輸送帶：把你往一邊推</span>
+          <i style="background:#39ff88"></i><span>跳躍板：把你彈高高</span>
+          <i style="background:#b26bff"></i><span>全息板：踩上去一下就消失</span>
+          <i style="background:#ff8c1a"></i><span>工地鋼樑（巴塞隆納）：會左右移動</span>
+        </div>
+      </details>
+    </div>
+
+    <div class="overlay hidden" id="board">
+      <div class="logo" style="font-size:5.4cqw">RANKING</div>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-city="la" aria-selected="true">🇺🇸 洛杉磯</button>
+        <button role="tab" data-city="bcn" aria-selected="false">🇪🇸 巴塞隆納</button>
+      </div>
+      <ol class="lb" id="boardList"></ol>
+      <p class="note">目前排行榜只記錄在這台裝置的瀏覽器裡</p>
+      <button class="px ghost sm" id="boardBack">返回</button>
+    </div>
+
+    <div class="overlay hidden" id="over">
+      <div class="logo" style="font-size:5.4cqw">GAME OVER</div>
+      <p id="overCity"></p>
+      <div class="big" id="finalFloor">B0F</div>
+      <p id="rankMsg"></p>
+      <ol class="lb compact" id="overList"></ol>
+      <div class="btns">
+        <button class="px" id="againBtn">再玩一次</button>
+        <button class="px ghost" id="menuBtn">換城市</button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="paused">
+      <div class="logo" style="font-size:7cqw">PAUSE</div>
+      <p>按 P 或 Esc 繼續</p>
+    </div>
+  </div>
+
+  <div class="pad">
+    <button id="padL" aria-label="左">◀</button>
+    <button id="padR" aria-label="右">▶</button>
+  </div>
+  <div class="tip">← → 或 A D 移動・P 暫停・Enter 再玩一次</div>
+  <div class="fan">非官方粉絲作品・Lucky 角色版權屬於原權利人</div>
+
+<script>
+(() => {
+  // ===== 基本設定（遊戲邏輯用 400×600，畫面用 200×300 像素繪製） =====
+  const W = 400, H = 600;
+  const LW = 200, LH = 300;
+  const q = v => Math.round(v / 2);
+  const HUD = 44;
+  const SPIKE_H = 14;
+  const CEIL = HUD + SPIKE_H;
+  const WALL = 12;
+  const GAP = 74;
+  const PW = 92, PH = 12;
+  const MAX_HP = 10;
+
+  const CITIES = {
+    la:  { name: "美國・洛杉磯", outfit: "hollywood" },
+    bcn: { name: "西班牙・巴塞隆納", outfit: "barcelona" },
+  };
+
+  const cv = document.getElementById("game");
+  const ctx = cv.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  const $ = id => document.getElementById(id);
+
+  function rng(seed) {
+    return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+
+  // ===== 排行榜（目前存在本機；要上網時只要換掉這個物件） =====
+  const Leaderboard = {
+    key: c => "lucky-stairs-lb-" + c,
+    async top(c) {
+      try { return JSON.parse(localStorage.getItem(this.key(c)) || "[]"); } catch { return []; }
+    },
+    // 回傳 { rank（1~10，沒進榜為 0）, list, id }
+    async submit(c, name, floor) {
+      const list = await this.top(c);
+      const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, floor, ts: Date.now() };
+      list.push(entry);
+      list.sort((a, b) => b.floor - a.floor || a.ts - b.ts);
+      const top = list.slice(0, 10);
+      try { localStorage.setItem(this.key(c), JSON.stringify(top)); } catch {}
+      const rank = top.findIndex(e => e.id === entry.id) + 1;
+      return { rank, list: top, id: entry.id };
+    },
+  };
+  const prefs = {
+    get name() { try { return localStorage.getItem("lucky-stairs-name") || ""; } catch { return ""; } },
+    set name(v) { try { localStorage.setItem("lucky-stairs-name", v); } catch {} },
+  };
+
+  // ===== 8-bit 音效 =====
+  let actx = null;
+  function beep(freq, dur = 0.08, type = "square", vol = 0.06, slide = 0) {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type; o.frequency.value = freq;
+      if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, actx.currentTime + dur);
+      g.gain.setValueAtTime(vol, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + dur);
+    } catch {}
+  }
+  const sfx = {
+    land: () => beep(330, 0.05, "square", 0.04),
+    spring: () => beep(260, 0.18, "square", 0.05, 3),
+    hurt: () => beep(140, 0.25, "sawtooth", 0.07, 0.5),
+    flip: () => beep(500, 0.1, "square", 0.04, 0.4),
+    quake: () => { for (let i = 0; i < 3; i++) setTimeout(() => beep(90, 0.18, "sawtooth", 0.06, 0.7), i * 220); },
+    over: () => { beep(392, 0.15, "square", 0.06); setTimeout(() => beep(330, 0.15, "square", 0.06), 150); setTimeout(() => beep(196, 0.4, "square", 0.06, 0.6), 300); },
+  };
+
+  // ===== 繪圖小工具 =====
+  function tri(c, a, b, d, e, f, g) { c.beginPath(); c.moveTo(a, b); c.lineTo(d, e); c.lineTo(f, g); c.closePath(); c.fill(); }
+  function rect(c, x, y, w, h, col) { c.fillStyle = col; c.fillRect(x, y, w, h); }
+
+  const FONT = {
+    0: "111101101101111", 1: "010110010010111", 2: "111001111100111", 3: "111001111001111", 4: "101101111001001",
+    5: "111100111001111", 6: "111100111101111", 7: "111001001001001", 8: "111101111101111", 9: "111101111001111",
+    B: "110101110101110", F: "111100110100100", H: "101101111101101", O: "111101101101111", L: "100100100100111",
+    Y: "101101010010010", W: "101101101111101", D: "110101101101110", Q: "111101101111011", U: "101101101101111",
+    A: "010101111101101", K: "101101110101101", E: "111100111100111", "!": "010010010000010",
+  };
+  function pxText(c, str, x, y, s, col) {
+    c.fillStyle = col;
+    for (const ch of str) {
+      const g = FONT[ch];
+      if (g) for (let i = 0; i < 15; i++) if (g[i] === "1") c.fillRect(x + (i % 3) * s, y + ((i / 3) | 0) * s, s, s);
+      x += 4 * s;
+    }
+  }
+  const textW = (str, s) => str.length * 4 * s - s;
+
+  // ===== Lucky 像素精靈（24×24，面向右） =====
+  const PAL = {
+    o: "#2a0a10", r: "#e8322a", d: "#a81e1a", l: "#ff7a5c", b: "#ffb08a",
+    w: "#ffffff", k: "#1b1012", y: "#ffb52e", Y: "#d07a10", p: "#ff8fa3",
+  };
+  const N = 24;
+  const spriteCache = {};
+  function buildSprite(outfit, frame, flash) {
+    const c = document.createElement("canvas"); c.width = c.height = N;
+    const g = c.getContext("2d");
+    const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+    const box = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+    const disc = (cx, cy, rx, ry, col, keep) => {
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const dx = (x + .5 - cx) / rx, dy = (y + .5 - cy) / ry;
+        if (dx * dx + dy * dy <= 1 && (!keep || keep(x, y))) px(x, y, col);
+      }
+    };
+    const poly = (pts, col) => {
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        let inside = false; const X = x + .5, Y = y + .5;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+          const [xi, yi] = pts[i], [xj, yj] = pts[j];
+          if ((yi > Y) !== (yj > Y) && X < (xj - xi) * (Y - yi) / (yj - yi) + xi) inside = !inside;
+        }
+        if (inside) px(x, y, col);
+      }
+    };
+    const hw = outfit === "hollywood", bc = outfit === "barcelona";
+    const step = frame === 1 ? 1 : frame === 2 ? -1 : 0;
+
+    // 翅膀（小小的橘黃蝙蝠翼）
+    poly([[10, 16], [6, 12], [3, 13], [3, 16], [5, 15.5], [6, 18], [9, 18]], PAL.y);
+    px(5, 14, PAL.Y); px(6, 15, PAL.Y);
+
+    // 尾巴＋尾端黃刺
+    poly([[9, 19], [5, 20], [3, 18], [2, 19], [3, 21], [9, 22]], PAL.r);
+    px(1, 17, PAL.y); px(2, 17, PAL.y); px(1, 18, PAL.y); px(2, 18, PAL.y); px(0, 19, PAL.y);
+
+    // 腳（走路時左右輪流抬起）
+    const pants = hw ? "#26232e" : bc ? "#2a4b8f" : null;
+    const upB = frame === 1 ? 1 : 0, upF = frame === 2 ? 1 : 0;
+    box(8, 21 - upB, 3, 1, pants || PAL.d); box(8, 22 - upB, 4, 1, PAL.d); px(11, 22 - upB, PAL.w);
+    box(13, 21 - upF, 3, 1, pants || PAL.r); box(13, 22 - upF, 4, 1, PAL.r); px(16, 22 - upF, PAL.w);
+
+    // 圓圓的小身體＋肚子
+    const BX = 12, BY = 18.5, BRX = 4.6, BRY = 3.9;
+    disc(BX, BY, BRX, BRY, PAL.r);
+    disc(13.5, 19, 2.2, 2.4, PAL.b);
+    if (hw) {
+      disc(BX, BY, BRX, BRY, "#fafafa", (x, y) => y <= 19);
+      disc(BX, BY, BRX, BRY, "#7a4a22", (x, y) => y === 20);
+      disc(BX, BY, BRX, BRY, pants, (x, y) => y >= 21);
+      px(14, 20, "#ffd23f");
+      px(14, 17, "#9aa0ad"); px(14, 19, "#9aa0ad");
+    } else if (bc) {
+      const tiles = ["#2f7fd1", "#ffd23f", "#e85d3a", "#3fb27f"];
+      const r = rng(5);
+      disc(BX, BY, BRX, BRY, "#fafafa", (x, y) => y <= 19);
+      disc(BX, BY, BRX, BRY, null, (x, y) => { if (y <= 19 && r() < .4) px(x, y, tiles[(r() * tiles.length) | 0]); return false; });
+      disc(BX, BY, BRX, BRY, pants, (x, y) => y >= 20);
+    }
+    // 小手
+    box(15, 17, 2, 2, PAL.r); px(17, 18, PAL.w);
+    if (hw || bc) px(15, 16, "#fafafa");
+
+    // 兩支小角
+    poly([[6, 5], [4, 0], [6, 0], [9, 3]], PAL.d);
+    poly([[10, 3], [10, -1], [12, -1], [13, 3]], PAL.r);
+
+    // 大圓頭＋短短的圓吻
+    disc(12, 8.5, 6.4, 5.9, PAL.r);
+    disc(18.6, 10.3, 2.8, 2.4, PAL.r);
+    px(7, 5, PAL.l); px(8, 4, PAL.l); px(9, 4, PAL.l); px(10, 3, PAL.l); px(7, 6, PAL.l);
+    for (let x = 8; x <= 15; x++) px(x, 14, PAL.d);
+    px(5, 8, PAL.y); px(5, 10, PAL.y);
+
+    // 大眼睛（3×5，含高光）
+    box(13, 5, 3, 5, PAL.w);
+    box(14, 6, 2, 4, PAL.k);
+    px(15, 6, PAL.w);
+    // 腮紅、鼻孔
+    px(12, 11, PAL.p); px(13, 11, PAL.p);
+    px(20, 9, PAL.d);
+    // 張開的小嘴＋一顆小尖牙
+    box(17, 11, 4, 1, PAL.o);
+    px(18, 12, PAL.p); px(19, 12, PAL.p);
+    px(17, 12, PAL.w);
+
+    // 配件
+    if (hw) {
+      // 推到頭上的墨鏡
+      box(8, 2, 4, 3, PAL.k); box(13, 2, 4, 3, PAL.k); px(12, 3, PAL.k); px(7, 4, PAL.k); px(6, 5, PAL.k);
+      px(9, 3, "#8a90a8"); px(14, 3, "#8a90a8"); px(10, 3, "#4a4f66"); px(15, 3, "#4a4f66");
+      // 黑色領結
+      px(11, 15, PAL.k); px(13, 15, PAL.k); px(12, 15, "#55505f"); px(11, 16, PAL.k); px(13, 16, PAL.k);
+    } else if (bc) {
+      // 加泰隆尼亞紅帽（barretina），帽尖往後垂
+      box(8, 1, 6, 2, "#9b1020"); box(6, 2, 2, 2, "#9b1020"); px(5, 3, "#9b1020"); px(4, 4, "#9b1020");
+      box(8, 3, 7, 1, "#1b1012");
+      // 紅黃圍巾
+      box(9, 15, 6, 1, "#c8102e"); box(10, 16, 4, 1, "#ffd23f"); px(12, 17, "#c8102e");
+    }
+
+    // 自動描外框
+    const img = g.getImageData(0, 0, N, N), d = img.data;
+    const solid = (x, y) => x >= 0 && y >= 0 && x < N && y < N && d[(y * N + x) * 4 + 3] > 0;
+    const outline = [];
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++)
+      if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1))) outline.push([x, y]);
+    for (const [x, y] of outline) px(x, y, PAL.o);
+
+    if (flash) { g.globalCompositeOperation = "source-atop"; box(0, 0, N, N, "rgba(255,255,255,.85)"); }
+    return c;
+  }
+  function sprite(outfit, frame, flash = false) {
+    const k = outfit + frame + flash;
+    return spriteCache[k] || (spriteCache[k] = buildSprite(outfit, frame, flash));
+  }
+
+
+  // ===== 城市背景：向量繪製 → 縮成像素 → 色彩量化 =====
+  function palm(c, x, y, h, lean, col, s = 1) {
+    c.fillStyle = col; c.strokeStyle = col;
+    const tx = x + lean, ty = y - h;
+    c.beginPath(); c.moveTo(x - 4 * s, y); c.quadraticCurveTo(x + lean * 0.2, y - h * 0.5, tx - 1.5 * s, ty);
+    c.lineTo(tx + 1.5 * s, ty); c.quadraticCurveTo(x + lean * 0.2 + 4 * s, y - h * 0.5, x + 4 * s, y); c.closePath(); c.fill();
+    for (let i = 0; i < 9; i++) {
+      const a = -Math.PI + (i / 8) * Math.PI + (i % 2 ? .12 : -.08);
+      const len = (22 + (i % 3) * 5) * s;
+      const ex = tx + Math.cos(a) * len, ey = ty + Math.sin(a) * len * 0.55 + len * 0.45;
+      c.beginPath(); c.moveTo(tx, ty);
+      c.quadraticCurveTo(tx + Math.cos(a) * len * 0.5, ty + Math.sin(a) * len * 0.8 - 6 * s, ex, ey);
+      c.quadraticCurveTo(tx + Math.cos(a) * len * 0.5, ty + Math.sin(a) * len * 0.8 - 1 * s, tx, ty + 2 * s);
+      c.fill();
+    }
+  }
+
+  function drawLA(c) {
+    const r = rng(42);
+    const sky = c.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, "#1a0a3d"); sky.addColorStop(0.32, "#55207a"); sky.addColorStop(0.56, "#d6457f");
+    sky.addColorStop(0.72, "#ff8a4c"); sky.addColorStop(0.8, "#ffc66b"); sky.addColorStop(1, "#ffc66b");
+    c.fillStyle = sky; c.fillRect(0, 0, W, H);
+    c.fillStyle = "#fff";
+    for (let i = 0; i < 45; i++) { c.globalAlpha = r() * .7; c.fillRect(r() * W, HUD + r() * 180, 1.4, 1.4); }
+    c.globalAlpha = 1;
+
+    // 復古夕陽（有橫條紋）
+    const sg = c.createLinearGradient(0, 380, 0, 500);
+    sg.addColorStop(0, "#ffe97a"); sg.addColorStop(1, "#ff4f73");
+    c.fillStyle = sg; c.beginPath(); c.arc(275, 455, 72, 0, Math.PI * 2); c.fill();
+    c.fillStyle = sky;
+    for (let i = 0; i < 6; i++) c.fillRect(190, 440 + i * 9, 170, 1.5 + i * 0.9);
+
+    // 遠山與好萊塢山
+    c.fillStyle = "#6b2a6e";
+    c.beginPath(); c.moveTo(0, 470); c.lineTo(0, 430); c.quadraticCurveTo(70, 395, 150, 425); c.quadraticCurveTo(230, 400, 300, 430);
+    c.quadraticCurveTo(360, 410, 400, 425); c.lineTo(400, 470); c.closePath(); c.fill();
+    c.fillStyle = "#3d1749";
+    c.beginPath(); c.moveTo(0, 480); c.lineTo(0, 440); c.quadraticCurveTo(60, 405, 130, 420); c.quadraticCurveTo(190, 430, 250, 455);
+    c.lineTo(250, 480); c.closePath(); c.fill();
+
+
+    // 市中心天際線
+    const base = 500, bcol = "#24102f";
+    c.fillStyle = bcol;
+    const blds = [[180, 18, 38], [200, 14, 55], [216, 20, 46], [238, 16, 70], [256, 22, 58], [282, 16, 92],
+                  [302, 20, 120], [326, 18, 108], [346, 16, 74], [364, 22, 52], [388, 14, 40], [160, 16, 28]];
+    for (const [bx, bw, bh] of blds) c.fillRect(bx, base - bh, bw, bh);
+    // US Bank Tower 的皇冠頂
+    c.beginPath(); c.ellipse(312, base - 120, 10, 6, 0, Math.PI, 0); c.fill();
+    c.fillRect(310, base - 134, 4, 10);
+    // Wilshire Grand 的尖塔與斜頂
+    c.beginPath(); c.moveTo(326, base - 108); c.lineTo(344, base - 118); c.lineTo(344, base - 108); c.closePath(); c.fill();
+    c.fillRect(342, base - 142, 1.5, 26);
+    c.fillStyle = "#ffd98a";
+    for (const [bx, bw, bh] of blds) for (let wy = base - bh + 5; wy < base - 3; wy += 6) for (let wx = bx + 3; wx < bx + bw - 2; wx += 4)
+      if (r() < 0.35) { c.globalAlpha = .4 + r() * .6; c.fillRect(wx, wy, 1.6, 2.2); }
+    c.globalAlpha = 1;
+
+    // 地面＋霓虹透視格線
+    const gg = c.createLinearGradient(0, base, 0, H);
+    gg.addColorStop(0, "#2b0f35"); gg.addColorStop(1, "#12071a");
+    c.fillStyle = gg; c.fillRect(0, base, W, H - base);
+    c.strokeStyle = "rgba(255,90,170,.45)"; c.lineWidth = 1;
+    for (let i = 0; i < 9; i++) { const yy = base + Math.pow(i / 8, 1.8) * 100; c.beginPath(); c.moveTo(0, yy); c.lineTo(W, yy); c.stroke(); }
+    for (let i = -10; i <= 10; i++) { c.beginPath(); c.moveTo(200 + i * 14, base); c.lineTo(200 + i * 70, H); c.stroke(); }
+
+    // 棕櫚樹剪影
+    palm(c, 262, 500, 70, -4, "#1d0b26", 0.6);
+    palm(c, 196, 500, 85, 6, "#1d0b26", 0.65);
+    palm(c, 30, 600, 250, 18, "#14061c", 1.15);
+    palm(c, 372, 600, 215, -16, "#14061c", 1.05);
+  }
+
+  function drawBCN(c) {
+    const r = rng(1882);
+    const sky = c.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, "#0d2a5c"); sky.addColorStop(0.38, "#2d6db5"); sky.addColorStop(0.6, "#86b9df");
+    sky.addColorStop(0.76, "#ffd59a"); sky.addColorStop(0.84, "#ffb77a"); sky.addColorStop(1, "#ffb77a");
+    c.fillStyle = sky; c.fillRect(0, 0, W, H);
+
+    // 雲
+    c.fillStyle = "rgba(255,255,255,.35)";
+    for (const [cx, cy, s] of [[80, 150, 1], [300, 110, 1.3], [110, 250, .8]]) {
+      for (const [dx, dy, rr] of [[0, 0, 14], [14, -6, 12], [28, 0, 13], [-12, 3, 9], [40, 4, 8]]) { c.beginPath(); c.arc(cx + dx * s, cy + dy * s, rr * s, 0, Math.PI * 2); c.fill(); }
+    }
+    // 夕陽
+    const sg = c.createRadialGradient(70, 470, 4, 70, 470, 90);
+    sg.addColorStop(0, "rgba(255,247,214,1)"); sg.addColorStop(0.35, "rgba(255,226,160,.7)"); sg.addColorStop(1, "rgba(255,200,130,0)");
+    c.fillStyle = sg; c.fillRect(0, 360, 200, 160);
+
+    // 蒙特惠克山
+    c.fillStyle = "#4d6b55";
+    c.beginPath(); c.moveTo(0, 505); c.lineTo(0, 465); c.quadraticCurveTo(60, 452, 130, 480); c.lineTo(150, 505); c.closePath(); c.fill();
+
+    // 擴展區街廓
+    const base = 505;
+    for (let bx = 0; bx < W; bx += 12) {
+      const bh = 16 + r() * 22;
+      c.fillStyle = r() < .5 ? "#c48d6a" : "#b37a5a";
+      c.fillRect(bx, base - bh, 12.5, bh);
+      c.fillStyle = "rgba(70,40,40,.55)";
+      for (let wy = base - bh + 4; wy < base - 2; wy += 5) for (let wx = bx + 2; wx < bx + 11; wx += 3.5) c.fillRect(wx, wy, 1.6, 2.4);
+    }
+
+    // 聖家堂
+    const sx = 215, scol = "#5a4140", shi = "#7c5b55";
+    c.fillStyle = scol;
+    c.fillRect(sx - 82, base - 62, 164, 62);
+    for (const gx of [-60, 0, 60]) tri(c, sx + gx - 22, base - 62, sx + gx, base - 92, sx + gx + 22, base - 62);
+    const spires = [
+      [0, 262, 17, "cross"], [-24, 210, 13, "star"], [24, 196, 12, "ball"], [-46, 188, 12, "ball"], [46, 184, 12, "ball"],
+      [-80, 150, 9, "ball"], [-69, 166, 9, "ball"], [-58, 158, 9, "ball"],
+      [58, 152, 9, "ball"], [69, 168, 9, "ball"], [80, 150, 9, "ball"],
+    ];
+    for (const [dx, h, w, top] of spires) {
+      const x0 = sx + dx - w / 2, yTop = base - h;
+      const g = c.createLinearGradient(x0, 0, x0 + w, 0);
+      g.addColorStop(0, shi); g.addColorStop(1, scol);
+      c.fillStyle = g;
+      c.beginPath(); c.moveTo(x0, base - 40);
+      c.lineTo(x0 + w * 0.08, yTop + h * 0.35);
+      c.quadraticCurveTo(x0 + w * 0.15, yTop + 8, x0 + w / 2, yTop);
+      c.quadraticCurveTo(x0 + w * 0.85, yTop + 8, x0 + w * 0.92, yTop + h * 0.35);
+      c.lineTo(x0 + w, base - 40); c.closePath(); c.fill();
+      c.fillStyle = "rgba(40,25,25,.5)";
+      for (let yy = yTop + 18; yy < base - 45; yy += 7) c.fillRect(x0 + w * 0.3, yy, w * 0.4, 2);
+      if (top === "cross") {
+        c.fillStyle = "#f4f1ea"; c.fillRect(sx + dx - 1.2, yTop - 14, 2.4, 14); c.fillRect(sx + dx - 5, yTop - 10, 10, 2.4);
+      } else if (top === "star") {
+        c.fillStyle = "#fff3c4"; c.beginPath(); c.arc(sx + dx, yTop - 3, 3.5, 0, Math.PI * 2); c.fill();
+      } else {
+        c.fillStyle = ["#f2c14e", "#e85d3a", "#3fb27f"][(r() * 3) | 0]; c.beginPath(); c.arc(sx + dx, yTop - 2, 2.4, 0, Math.PI * 2); c.fill();
+      }
+    }
+    // 工程吊車
+    c.strokeStyle = "#e85d3a"; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(sx + 100, base - 60); c.lineTo(sx + 100, base - 220); c.lineTo(sx + 40, base - 220); c.moveTo(sx + 100, base - 220); c.lineTo(sx + 125, base - 220); c.stroke();
+
+    // 阿格巴塔（Torre Glòries）
+    const tx = 352, tw = 30, th = 150;
+    const tg = c.createLinearGradient(0, base - th, 0, base);
+    tg.addColorStop(0, "#3a7bd5"); tg.addColorStop(0.55, "#2a4f9e"); tg.addColorStop(1, "#c8323c");
+    c.fillStyle = tg;
+    c.beginPath(); c.moveTo(tx - tw / 2, base); c.lineTo(tx - tw / 2, base - th * 0.62);
+    c.bezierCurveTo(tx - tw / 2, base - th * 1.02, tx + tw / 2, base - th * 1.02, tx + tw / 2, base - th * 0.62);
+    c.lineTo(tx + tw / 2, base); c.closePath(); c.fill();
+    c.save(); c.clip();
+    for (let yy = base - th; yy < base; yy += 4) for (let xx = tx - tw / 2; xx < tx + tw / 2; xx += 4) {
+      c.fillStyle = `rgba(255,255,255,${r() * .35})`; c.fillRect(xx + 1, yy + 1, 2, 2);
+    }
+    c.restore();
+
+    // 地中海
+    const sea = c.createLinearGradient(0, base, 0, H);
+    sea.addColorStop(0, "#2b7bbf"); sea.addColorStop(1, "#0d3566");
+    c.fillStyle = sea; c.fillRect(0, base, W, H - base);
+    c.fillStyle = "rgba(255,236,190,.6)";
+    for (let i = 0; i < 14; i++) { const yy = base + 4 + i * 7; c.fillRect(50 - i * 3 + r() * 6, yy, 40 + i * 6 - r() * 10, 1.5); }
+    c.fillStyle = "rgba(255,255,255,.25)";
+    for (let i = 0; i < 40; i++) c.fillRect(r() * W, base + 6 + r() * 90, 6 + r() * 10, 1);
+
+    // 海灘棕櫚樹
+    palm(c, 26, 600, 230, 20, "#123150", 1.1);
+    palm(c, 380, 600, 200, -18, "#123150", 1.0);
+  }
+
+
+  // 額外的地標（畫在原本背景之上，仍是向量座標 400×600）
+  function drawLAExtras(c) {
+    // 格里菲斯天文台（好萊塢山上）
+    c.fillStyle = "#f3ead8";
+    c.fillRect(200, 444, 30, 8);
+    c.beginPath(); c.arc(215, 444, 7, Math.PI, 0); c.fill();
+    c.beginPath(); c.arc(202, 446, 3.5, Math.PI, 0); c.fill();
+    c.beginPath(); c.arc(228, 446, 3.5, Math.PI, 0); c.fill();
+    c.fillStyle = "#3d1749"; c.fillRect(205, 448, 2, 4); c.fillRect(212, 448, 2, 4); c.fillRect(219, 448, 2, 4);
+    // 摩天輪骨架（聖塔莫尼卡碼頭）
+    c.strokeStyle = "#f6d8ff"; c.lineWidth = 1.6;
+    c.beginPath(); c.arc(118, 474, 26, 0, Math.PI * 2); c.stroke();
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; c.beginPath(); c.moveTo(118, 474); c.lineTo(118 + Math.cos(a) * 26, 474 + Math.sin(a) * 26); c.stroke(); }
+    c.lineWidth = 2.4; c.beginPath(); c.moveTo(104, 504); c.lineTo(118, 474); c.lineTo(132, 504); c.stroke();
+    // 高速公路
+    c.fillStyle = "#1a0a22"; c.fillRect(0, 504, W, 14);
+    c.fillStyle = "#3a1d46"; c.fillRect(0, 504, W, 2); c.fillRect(0, 516, W, 2);
+    // 霓虹看板
+    c.fillStyle = "#14061c"; c.fillRect(150, 470, 34, 20); c.fillRect(165, 490, 3, 14);
+    c.fillStyle = "#ff4fd8"; c.fillRect(152, 472, 30, 2); c.fillRect(152, 486, 30, 2);
+    c.fillStyle = "#4df0ff"; c.fillRect(156, 477, 22, 6);
+  }
+  function drawBCNExtras(c) {
+    // W 酒店（帆船造型）
+    const g = c.createLinearGradient(150, 430, 175, 505);
+    g.addColorStop(0, "#d8f0ff"); g.addColorStop(1, "#5a8fc0");
+    c.fillStyle = g;
+    c.beginPath(); c.moveTo(152, 505); c.quadraticCurveTo(150, 455, 170, 428); c.quadraticCurveTo(178, 470, 176, 505); c.closePath(); c.fill();
+    // 哥倫布紀念柱
+    c.fillStyle = "#4a3a3a"; c.fillRect(124, 448, 3, 57); c.fillRect(120, 495, 11, 10);
+    c.fillStyle = "#2e2424"; c.fillRect(123, 442, 5, 6);
+    // 港口碼頭
+    c.fillStyle = "#6b5040"; c.fillRect(100, 505, 80, 4);
+    // 彩色瓷磚步道（海邊）
+    for (let x = 0; x < W; x += 8) { c.fillStyle = ["#2f7fd1", "#ffd23f", "#e85d3a", "#3fb27f"][(x / 8) % 4]; c.fillRect(x, 503, 6, 2); }
+  }
+
+  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  function pixelate(c) {
+    const img = c.getImageData(0, 0, LW, LH), d = img.data, STEP = 30;
+    for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) {
+      const i = (y * LW + x) * 4, t = (BAYER[(y & 3) * 4 + (x & 3)] / 16 - 0.5) * STEP;
+      for (let k = 0; k < 3; k++) d[i + k] = Math.max(0, Math.min(255, Math.round((d[i + k] + t) / STEP) * STEP));
+    }
+    c.putImageData(img, 0, 0);
+  }
+  const bgCache = {};
+  function getBg(city) {
+    if (bgCache[city]) return bgCache[city];
+    const off = document.createElement("canvas");
+    off.width = LW; off.height = LH;
+    const c = off.getContext("2d");
+    c.save(); c.scale(0.5, 0.5);
+    if (city === "la") { drawLA(c); drawLAExtras(c); } else { drawBCN(c); drawBCNExtras(c); }
+    c.restore();
+    pixelate(c);
+    if (city === "la") {
+      const word = "HOLLYWOOD";
+      for (let i = 0; i < word.length; i++) pxText(c, word[i], 18 + i * 6, 208 + (i > 5 ? i - 5 : 0) - (i < 3 ? 1 : 0), 1, "#fff6ea");
+    }
+    return (bgCache[city] = off);
+  }
+
+  // ===== 背景動態效果（每幀畫，像素座標） =====
+  const fxR = rng(99);
+  const STARS = Array.from({ length: 26 }, () => ({ x: (fxR() * 188 + 6) | 0, y: (fxR() * 90 + 24) | 0, p: fxR() * 6 }));
+  const GULLS = Array.from({ length: 4 }, (_, i) => ({ y: 60 + i * 22 + fxR() * 10, sp: 8 + fxR() * 8, off: fxR() * 260, flap: fxR() * 3 }));
+  const BOATS = [{ y: 262, sp: 2.2, off: 30 }, { y: 274, sp: 3.4, off: 140 }, { y: 286, sp: 1.6, off: 90 }];
+  function drawBgFx(time) {
+    const c = ctx;
+    if (city === "la") {
+      // 好萊塢探照燈
+      c.save();
+      c.globalAlpha = 0.13; c.fillStyle = "#fff6d0";
+      for (const [bx, sp, ph] of [[64, 0.5, 0], [140, 0.4, 2]]) {
+        const a = -Math.PI / 2 + Math.sin(time * sp + ph) * 0.55;
+        const len = 230, half = 0.05;
+        c.beginPath(); c.moveTo(bx, 250);
+        c.lineTo(bx + Math.cos(a - half) * len, 250 + Math.sin(a - half) * len);
+        c.lineTo(bx + Math.cos(a + half) * len, 250 + Math.sin(a + half) * len);
+        c.closePath(); c.fill();
+      }
+      c.restore();
+      // 閃爍星星
+      for (const s of STARS) if (Math.sin(time * 2 + s.p) > 0.3) rect(c, s.x, s.y, 1, 1, "#ffffff");
+      // 飛機燈
+      const ax = ((time * 14) % 260) - 30;
+      rect(c, ax | 0, 40, 3, 1, "#c9c3e0");
+      if (Math.floor(time * 3) % 2) rect(c, (ax | 0) + 3, 40, 1, 1, "#ff3355");
+      // 摩天輪燈光旋轉
+      const cols = ["#ff4fd8", "#4df0ff", "#ffd23f", "#39ff88"];
+      for (let i = 0; i < 12; i++) {
+        const a = time * 0.6 + i * Math.PI / 6;
+        rect(c, Math.round(59 + Math.cos(a) * 13), Math.round(237 + Math.sin(a) * 13), 1, 1, cols[i % 4]);
+      }
+      // 高速公路車燈
+      for (let i = 0; i < 14; i++) {
+        const xl = (((i * 37 - time * 30) % 230) + 230) % 230 - 15;
+        rect(c, xl | 0, 254, 2, 1, "#fff4c0");
+        const xr = (((i * 41 + time * 26) % 230) + 230) % 230 - 15;
+        rect(c, xr | 0, 256, 2, 1, "#ff3b3b");
+      }
+    } else {
+      // 海鷗
+      for (const g of GULLS) {
+        const x = Math.round(((g.off + time * g.sp) % 240) - 20), y = Math.round(g.y + Math.sin(time + g.off) * 3);
+        const up = Math.floor(time * 4 + g.flap) % 2;
+        c.fillStyle = "#f4f1ea";
+        c.fillRect(x, y + (up ? 0 : 1), 1, 1); c.fillRect(x + 1, y + 1, 1, 1); c.fillRect(x + 2, y + 2, 1, 1);
+        c.fillRect(x + 3, y + 1, 1, 1); c.fillRect(x + 4, y + (up ? 0 : 1), 1, 1);
+      }
+      // 帆船
+      for (const b of BOATS) {
+        const x = Math.round(((b.off + time * b.sp) % 230) - 15), y = b.y + (Math.floor(time * 2 + b.off) % 2);
+        rect(c, x, y, 7, 2, "#f4f1ea"); rect(c, x + 1, y + 2, 5, 1, "#8a5a3a");
+        rect(c, x + 3, y - 7, 1, 7, "#5a4030");
+        c.fillStyle = "#ffffff"; for (let k = 0; k < 6; k++) c.fillRect(x + 4, y - 6 + k, Math.ceil(k / 2), 1);
+        c.fillStyle = "#e85d3a"; for (let k = 0; k < 4; k++) c.fillRect(x + 3 - Math.ceil(k / 2), y - 5 + k, Math.ceil(k / 2), 1);
+      }
+      // 阿格巴塔 LED 變色
+      const hue = (time * 40) % 360;
+      c.save(); c.globalAlpha = 0.35;
+      for (let yy = 178; yy < 252; yy += 2) {
+        const w = yy < 196 ? Math.round(15 * Math.sqrt(Math.max(0, (yy - 176) / 20))) : 15;
+        c.fillStyle = `hsl(${(hue + yy * 3) % 360},90%,60%)`;
+        c.fillRect(176 - Math.floor(w / 2) + 1, yy, w - 1, 1);
+      }
+      c.restore();
+      // 海面閃光
+      for (let i = 0; i < 18; i++) {
+        if (Math.sin(time * 3 + i * 1.7) > 0.6) rect(c, (i * 53) % 196 + 2, 256 + (i * 17) % 40, 2, 1, "#ffffff");
+      }
+    }
+  }
+
+  function drawFlag(c, city, x, y) {
+    if (city === "la") {
+      for (let i = 0; i < 7; i++) rect(c, x, y + i, 11, 1, i % 2 ? "#fff" : "#c8283c");
+      rect(c, x, y, 5, 4, "#3c3b8e");
+      c.fillStyle = "#fff"; c.fillRect(x + 1, y + 1, 1, 1); c.fillRect(x + 3, y + 1, 1, 1); c.fillRect(x + 2, y + 2, 1, 1);
+    } else {
+      rect(c, x, y, 11, 7, "#c60b1e"); rect(c, x, y + 2, 11, 3, "#ffc400");
+    }
+  }
+  const HEART = [".11.11.", "1111111", "1111111", ".11111.", "..111..", "...1..."];
+  function heart(c, x, y, col) {
+    c.fillStyle = col;
+    HEART.forEach((row, j) => { for (let i = 0; i < 7; i++) if (row[i] === "1") c.fillRect(x + i, y + j, 1, 1); });
+  }
+
+  // ===== 遊戲狀態 =====
+  let state = "menu", city = "la", playerName = "";
+  let player, plats, particles, scroll, scrolled, elapsed, shake, quake;
+  const keys = { left: false, right: false };
+
+  let made = 0;
+  function pickType(n) {
+    if (n < 4) return "normal";
+    const r = Math.random();
+    // 巴塞隆納：一部分普通階梯換成會移動的工地鋼樑
+    if (city === "bcn" && n > 6 && r < 0.18) return "beam";
+    const r2 = city === "bcn" ? (r - 0.18) / 0.82 : r;
+    if (r2 < 0.38) return "normal";
+    if (r2 < 0.54) return "spike";
+    if (r2 < 0.64) return "convL";
+    if (r2 < 0.74) return "convR";
+    if (r2 < 0.86) return "spring";
+    return "fake";
+  }
+  function makePlat(y, type) {
+    const x = WALL + Math.random() * (W - WALL * 2 - PW);
+    made++;
+    const t = type || pickType(made);
+    return {
+      x, bx: x, y, w: PW, h: PH, type: t, t: 0, flipped: false, triggered: false, squash: 0, dx: 0,
+      phase: Math.random() * Math.PI * 2,
+      vx: t === "beam" ? (Math.random() < .5 ? -1 : 1) * (45 + Math.random() * 35) : 0,
+    };
+  }
+
+  function reset() {
+    made = 0;
+    plats = [];
+    const start = makePlat(320, "normal");
+    start.x = start.bx = W / 2 - PW / 2;
+    plats.push(start);
+    for (let y = 320 + GAP; y < H + GAP; y += GAP) plats.push(makePlat(y));
+    player = {
+      x: W / 2 - 13, y: 320 - 40, w: 26, h: 40, vx: 0, vy: 0,
+      face: 1, hp: MAX_HP, on: null, ignore: null, inv: 0, hurtFlash: 0, walkT: 0,
+    };
+    particles = [];
+    scroll = 85; scrolled = 0; elapsed = 0; shake = 0;
+    quake = { next: 14 + Math.random() * 8, warn: 0, active: 0 };
+  }
+
+  function burst(x, y, color, n = 10, spd = 120) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = spd * (0.4 + Math.random() * 0.8);
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, life: 0.5 + Math.random() * 0.3, color });
+    }
+  }
+  function hurt(n) {
+    player.hp = Math.max(0, player.hp - n);
+    player.hurtFlash = 0.4; shake = Math.max(shake, 0.3);
+    sfx.hurt();
+    burst(player.x + player.w / 2, player.y + player.h / 2, "#ff2a6d", 14, 160);
+  }
+
+  // ===== 更新 =====
+  function update(dt) {
+    elapsed += dt;
+    scroll = Math.min(85 + elapsed * 2.4, 230);
+    const dy = scroll * dt;
+    scrolled += dy;
+
+    // 洛杉磯：地震事件（預警 1.6 秒 → 搖晃 3.5 秒）
+    if (city === "la") {
+      if (quake.active > 0) {
+        quake.active -= dt;
+        if (quake.active <= 0) quake.next = elapsed + 18 + Math.random() * 12;
+      } else if (quake.warn > 0) {
+        quake.warn -= dt;
+        if (quake.warn <= 0) { quake.active = 3.5; sfx.quake(); }
+      } else if (elapsed >= quake.next) {
+        quake.warn = 1.6;
+        beep(880, 0.08, "square", 0.05); setTimeout(() => beep(880, 0.08, "square", 0.05), 200);
+      }
+      if (quake.active > 0) shake = Math.max(shake, 0.12);
+    }
+
+    const MINX = WALL, MAXX = W - WALL - PW;
+    for (const p of plats) {
+      p.y -= dy;
+      const ox = p.x;
+      if (p.type === "beam") {
+        p.x += p.vx * dt;
+        if (p.x < MINX) { p.x = MINX; p.vx = Math.abs(p.vx); }
+        if (p.x > MAXX) { p.x = MAXX; p.vx = -Math.abs(p.vx); }
+        p.bx = p.x;
+      } else if (city === "la" && quake.active > 0) {
+        const k = Math.min(1, quake.active / 0.6, (3.5 - quake.active) / 0.3);
+        p.x = Math.max(MINX, Math.min(MAXX, p.bx + Math.sin(elapsed * 16 + p.phase) * 16 * k));
+      } else {
+        p.x = p.bx;
+      }
+      p.dx = p.x - ox;
+      if (p.squash > 0) p.squash = Math.max(0, p.squash - dt * 4);
+      if (p.type === "fake" && p.triggered) {
+        p.t += dt;
+        if (!p.flipped && p.t > 0.32) { p.flipped = true; sfx.flip(); if (player.on === p) { player.on = null; player.ignore = p; } }
+      }
+    }
+    plats = plats.filter(p => p.y + p.h > HUD - 10);
+    let lastY = plats.length ? plats[plats.length - 1].y : H;
+    while (lastY < H + GAP) { lastY += GAP; plats.push(makePlat(lastY)); }
+
+    const P = player;
+    const dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    P.vx = dir * 210;
+    if (dir) P.face = dir;
+    if (P.on) {
+      if (P.on.type === "convL") P.vx -= 95;
+      if (P.on.type === "convR") P.vx += 95;
+      P.x += P.on.dx;   // 跟著移動中的階梯一起走
+    }
+    P.x += P.vx * dt;
+    P.x = Math.max(WALL, Math.min(W - WALL - P.w, P.x));
+    if (dir) P.walkT += dt;
+
+    if (P.on) {
+      const p = P.on;
+      if (P.x + P.w < p.x + 3 || P.x > p.x + p.w - 3 || p.flipped) P.on = null;
+      else { P.y = p.y - P.h; P.vy = 0; }
+    }
+    if (!P.on) {
+      const prevBottom = P.y + P.h;
+      P.vy = Math.min(P.vy + 1500 * dt, 560);
+      P.y += P.vy * dt;
+      const bottom = P.y + P.h;
+      if (P.vy >= 0) {
+        for (const p of plats) {
+          if (p.flipped || p === P.ignore) continue;
+          const overlap = P.x + P.w > p.x + 3 && P.x < p.x + p.w - 3;
+          if (overlap && prevBottom <= p.y + dy + 1 && bottom >= p.y) { land(p); break; }
+        }
+      }
+    }
+
+    if (P.y < CEIL) {
+      if (P.inv <= 0) { hurt(5); P.inv = 1.0; }
+      if (P.on) { P.ignore = P.on; P.on = null; }
+      P.y = CEIL + 1; P.vy = 60;
+    }
+    if (P.ignore && P.y > P.ignore.y + 4) P.ignore = null;
+
+    P.inv = Math.max(0, P.inv - dt);
+    P.hurtFlash = Math.max(0, P.hurtFlash - dt);
+    shake = Math.max(0, shake - dt);
+
+    for (const pt of particles) { pt.life -= dt; pt.vy += 500 * dt; pt.x += pt.vx * dt; pt.y += pt.vy * dt; }
+    particles = particles.filter(pt => pt.life > 0);
+
+    if (P.hp <= 0 || P.y > H + 10) gameOver();
+  }
+
+  function land(p) {
+    const P = player;
+    P.y = p.y - P.h;
+    if (p.type === "spring") {
+      P.vy = -560; P.on = null; p.squash = 1;
+      if (P.hp < MAX_HP) P.hp++;
+      sfx.spring();
+      burst(P.x + P.w / 2, p.y, "#39ff88", 8, 90);
+      return;
+    }
+    P.on = p; P.vy = 0;
+    if (p.type === "spike") hurt(5);
+    else { if (P.hp < MAX_HP) P.hp++; sfx.land(); }
+    if (p.type === "fake" && !p.triggered) { p.triggered = true; p.t = 0; }
+  }
+
+  const floors = () => Math.floor(scrolled / GAP);
+
+  async function gameOver() {
+    state = "over";
+    sfx.over();
+    const f = floors();
+    $("overCity").textContent = `${playerName} 帶 Lucky 在${CITIES[city].name}到達了`;
+    $("finalFloor").textContent = `B${f}F`;
+    $("rankMsg").textContent = "";
+    $("overList").innerHTML = "";
+    $("over").classList.remove("hidden");
+    const { rank, list, id } = await Leaderboard.submit(city, playerName, f);
+    $("rankMsg").textContent = rank === 1 ? "★ 第 1 名！新紀錄！★" : rank ? `排名第 ${rank} 名！` : "這次沒進前十名，再接再厲！";
+    renderList($("overList"), list, id);
+  }
+
+  // ===== 科技風階梯 =====
+  const PLW = PW / 2, PLH = PH / 2;   // 46×6
+  function glowRow(c, x, y, w, col, a) { c.save(); c.globalAlpha = a; rect(c, x, y, w, 1, col); c.restore(); }
+  function techBody(c, x, y, w, h, accent, time, ledPhase = 0) {
+    rect(c, x - 1, y - 1, w + 2, h + 2, "#05070c");
+    rect(c, x, y, w, h, "#1a2130");
+    rect(c, x, y + 1, w, 1, "#2c374d");
+    rect(c, x, y + h - 1, w, 1, "#0e131c");
+    rect(c, x, y, w, 1, accent);
+    rect(c, x, y, 2, h, "#3a4660"); rect(c, x + w - 2, y, 2, h, "#3a4660");
+    rect(c, x + 1, y + 2, 1, 2, accent); rect(c, x + w - 2, y + 2, 1, 2, accent);
+    // 電路紋＋閃爍 LED
+    rect(c, x + 5, y + 3, 8, 1, "#24304a"); rect(c, x + 13, y + 2, 1, 2, "#24304a");
+    rect(c, x + w - 14, y + 3, 9, 1, "#24304a");
+    for (let i = 8; i < w - 6; i += 8) {
+      const on = Math.sin(time * 4 + i * 0.7 + ledPhase) > 0;
+      rect(c, x + i, y + 3, 1, 1, on ? accent : "#2c374d");
+    }
+    glowRow(c, x, y - 1, w, accent, 0.35);
+    glowRow(c, x + 2, y + h + 1, w - 4, accent, 0.18);
+  }
+  function drawPlat(p, time) {
+    const x = q(p.x), y = q(p.y), w = PLW, h = PLH;
+    const c = ctx;
+    if (p.type === "normal") {
+      techBody(c, x, y, w, h, "#4df0ff", time, p.phase);
+    } else if (p.type === "spike") {
+      techBody(c, x, y + 1, w, h - 1, "#ff2a6d", time, p.phase);
+      const pulse = 0.55 + Math.sin(time * 8 + p.phase) * 0.3;
+      for (let i = 1; i < w - 2; i += 4) {
+        rect(c, x + i, y - 1, 3, 1, "#ff2a6d"); rect(c, x + i + 1, y - 3, 1, 2, "#ff2a6d");
+        c.save(); c.globalAlpha = pulse; rect(c, x + i + 1, y - 4, 1, 1, "#ffd0dc"); c.restore();
+      }
+      glowRow(c, x, y - 5, w, "#ff2a6d", 0.18 * pulse);
+    } else if (p.type === "convL" || p.type === "convR") {
+      techBody(c, x, y, w, h, "#ffb000", time, p.phase);
+      const dir = p.type === "convL" ? -1 : 1;
+      const off = Math.floor(time * 24) % 6;
+      c.save(); c.beginPath(); c.rect(x + 2, y + 1, w - 4, h - 2); c.clip();
+      for (let i = -6; i < w + 6; i += 6) {
+        const sx = x + i + off * dir;
+        c.fillStyle = "#ffb000";
+        if (dir > 0) { c.fillRect(sx, y + 2, 1, 1); c.fillRect(sx + 1, y + 3, 1, 1); c.fillRect(sx, y + 4, 1, 1); }
+        else { c.fillRect(sx + 1, y + 2, 1, 1); c.fillRect(sx, y + 3, 1, 1); c.fillRect(sx + 1, y + 4, 1, 1); }
+      }
+      c.restore();
+    } else if (p.type === "spring") {
+      const sq = Math.round(p.squash * 2);
+      techBody(c, x, y + 2, w, h - 2, "#39ff88", time, p.phase);
+      const pulse = 0.5 + Math.sin(time * 6 + p.phase) * 0.35;
+      rect(c, x + 3, y + sq, w - 6, 2, "#39ff88");
+      rect(c, x + 3, y + sq, w - 6, 1, "#c6ffdc");
+      for (let i = 9; i < w - 6; i += 10) {
+        c.save(); c.globalAlpha = pulse; c.fillStyle = "#39ff88";
+        c.fillRect(x + i, y - 3, 1, 1); c.fillRect(x + i - 1, y - 2, 1, 1); c.fillRect(x + i + 1, y - 2, 1, 1);
+        c.restore();
+      }
+      glowRow(c, x + 3, y - 1 + sq, w - 6, "#39ff88", 0.4 * pulse);
+    } else if (p.type === "fake") {
+      let rows = h, dx = 0;
+      if (p.flipped) rows = Math.max(0, Math.round(h * (1 - (p.t - 0.32) * 6)));
+      else if (p.triggered) dx = Math.floor(p.t * 40) % 2 ? 2 : -2;
+      if (rows > 0) {
+        const yy = y + Math.floor((h - rows) / 2);
+        c.save();
+        c.globalAlpha = (p.triggered ? 0.5 : 0.7) * (0.85 + Math.sin(time * 20 + p.phase) * 0.15);
+        rect(c, x + dx, yy, w, rows, "#2a1846");
+        for (let r = 0; r < rows; r += 2) rect(c, x + dx, yy + r, w, 1, "#b26bff");
+        rect(c, x + dx, yy, 1, rows, "#e0c4ff"); rect(c, x + dx + w - 1, yy, 1, rows, "#e0c4ff");
+        c.restore();
+        glowRow(c, x + dx, yy - 1, w, "#b26bff", 0.3);
+      }
+    } else if (p.type === "beam") {
+      // 聖家堂工地吊車鋼樑
+      rect(c, x + w / 2, Math.max(30, y - 40), 1, y - Math.max(30, y - 40), "#2b2b33");
+      rect(c, x + w / 2 - 2, y - 3, 5, 1, "#2b2b33"); rect(c, x + w / 2 - 2, y - 2, 1, 2, "#2b2b33"); rect(c, x + w / 2 + 2, y - 2, 1, 2, "#2b2b33");
+      rect(c, x - 1, y - 1, w + 2, h + 2, "#05070c");
+      rect(c, x, y, w, h, "#ff8c1a");
+      rect(c, x, y, w, 1, "#ffc06a"); rect(c, x, y + h - 1, w, 1, "#a8520a");
+      for (let i = 3; i < w - 3; i += 6) rect(c, x + i, y + 2, 2, 2, "#5a2c06");
+      for (let i = 0; i < w; i += 6) { rect(c, x + i, y + 1, 2, 1, "#1b1b22"); }
+      const blink = Math.floor(time * 3) % 2;
+      rect(c, x, y + 2, 1, 2, blink ? "#ff3b3b" : "#5a1010"); rect(c, x + w - 1, y + 2, 1, 2, blink ? "#5a1010" : "#ff3b3b");
+    }
+  }
+
+  const STAR5 = ["..1..", ".111.", "11111", ".111.", "1...1"];
+  function drawWalls(time) {
+    const off = Math.floor(q(scrolled)) % 12;
+    for (const wx of [0, LW - 6]) {
+      if (city === "la") {
+        rect(ctx, wx, 22, 6, LH - 22, "#2a1530");
+        for (let yy = 22 - off; yy < LH; yy += 12) {
+          ctx.fillStyle = "#f08ab0";
+          STAR5.forEach((row, j) => { for (let i = 0; i < 5; i++) if (row[i] === "1" && yy + 3 + j >= 22) ctx.fillRect(wx + i, yy + 3 + j, 1, 1); });
+        }
+      } else {
+        rect(ctx, wx, 22, 6, LH - 22, "#f3efe6");
+        const cols = ["#2f7fd1", "#ffd23f", "#e85d3a", "#3fb27f", "#8fd3f4"];
+        const base = Math.floor(q(scrolled) / 3);
+        for (let j = 0, yy = 22 - (q(scrolled) % 3); yy < LH; yy += 3, j++) {
+          const s = base + j;
+          if (yy >= 22) {
+            ctx.fillStyle = cols[((s * 7 + wx) % 5 + 5) % 5]; ctx.fillRect(wx, yy, 2, 2);
+            ctx.fillStyle = cols[((s * 3 + wx + 2) % 5 + 5) % 5]; ctx.fillRect(wx + 3, yy, 2, 2);
+          }
+        }
+      }
+      // 科技感導軌：牆內側一條會流動的光
+      const ix = wx ? wx - 1 : 6;
+      rect(ctx, ix, 22, 1, LH - 22, "#05070c");
+      const flow = Math.floor(time * 40) % 24;
+      for (let yy = 22 + flow; yy < LH; yy += 24) rect(ctx, ix, yy, 1, 4, "#4df0ff");
+    }
+  }
+
+  function draw(time) {
+    ctx.save();
+    if (shake > 0) ctx.translate(Math.round((Math.random() - 0.5) * 4 * Math.min(1, shake / 0.3)), Math.round((Math.random() - 0.5) * 4 * Math.min(1, shake / 0.3)));
+
+    ctx.drawImage(getBg(city), 0, 0);
+    drawBgFx(time);
+    drawWalls(time);
+    for (const p of plats) drawPlat(p, time);
+
+    for (const pt of particles) {
+      if (Math.floor(pt.life * 20) % 2 && pt.life < .25) continue;
+      rect(ctx, q(pt.x), q(pt.y), 2, 2, pt.color);
+    }
+
+    const P = player;
+    if (!(P.inv > 0 && Math.floor(time * 16) % 2)) {
+      const moving = P.vx !== 0 && !!P.on;
+      const frame = moving ? 1 + (Math.floor(P.walkT * 10) % 2) : 0;
+      const spr = sprite(CITIES[city].outfit, frame, P.hurtFlash > 0.2);
+      const sx = q(P.x + P.w / 2) - 12, sy = q(P.y + P.h) - 23;
+      if (P.face < 0) { ctx.save(); ctx.translate(sx + N, sy); ctx.scale(-1, 1); ctx.drawImage(spr, 0, 0); ctx.restore(); }
+      else ctx.drawImage(spr, sx, sy);
+    }
+
+    // 天花板：金屬底座＋尖刺＋紅色警示燈
+    rect(ctx, 0, 22, LW, 2, "#2c374d");
+    for (let sx = 0; sx < LW; sx += 10) {
+      for (let k = 0; k < 6; k++) {
+        const inset = Math.round(k * 5 / 6);
+        rect(ctx, sx + inset, 24 + k, 10 - inset * 2, 1, k % 2 ? "#c9d2e0" : "#8e9ab0");
+      }
+      rect(ctx, sx + 4, 24, 1, 5, "#eef3fb");
+    }
+    const warn = Math.floor(time * 2) % 2;
+    for (let sx = 20; sx < LW; sx += 40) rect(ctx, sx, 22, 2, 1, warn ? "#ff2a6d" : "#5a1020");
+
+    // HUD
+    rect(ctx, 0, 0, LW, 22, "#0d0b14");
+    rect(ctx, 0, 21, LW, 1, "#4df0ff");
+    drawFlag(ctx, city, 6, 8);
+    for (let i = 0; i < MAX_HP; i++) heart(ctx, 22 + i * 8, 8, i < P.hp ? (P.hp <= 3 ? "#ff3355" : "#ff5a4e") : "#2e2a40");
+    const label = `B${floors()}F`;
+    pxText(ctx, label, LW - 6 - textW(label, 2), 6, 2, "#ffd23f");
+
+    // 地震預警橫幅
+    if (city === "la" && state === "play" && (quake.warn > 0 || quake.active > 0) && Math.floor(time * 6) % 2) {
+      const msg = "QUAKE!", tw = textW(msg, 2);
+      const by = LH - 24;   // 放在畫面下方，避免擋住上面的 Lucky
+      rect(ctx, LW / 2 - tw / 2 - 4, by, tw + 8, 16, "#05070c");
+      rect(ctx, LW / 2 - tw / 2 - 3, by + 1, tw + 6, 14, quake.active > 0 ? "#ff2a6d" : "#ffb000");
+      pxText(ctx, msg, LW / 2 - tw / 2, by + 3, 2, "#05070c");
+    }
+
+    ctx.restore();
+  }
+
+  // ===== 主迴圈 =====
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min((now - last) / 1000, 1 / 30);
+    last = now;
+    if (state === "play") update(dt);
+    draw(now / 1000);
+    requestAnimationFrame(loop);
+  }
+
+  // ===== 選單、排行榜與控制 =====
+  function fmtDate(ts) { const d = new Date(ts); return `${d.getMonth() + 1}/${d.getDate()}`; }
+  function renderList(ol, list, meId) {
+    ol.replaceChildren();
+    if (!list.length) {
+      const li = document.createElement("li"); li.className = "empty"; li.textContent = "還沒有人上榜，快來搶第一！"; ol.append(li); return;
+    }
+    list.forEach((e, i) => {
+      const li = document.createElement("li");
+      if (e.id === meId) li.className = "me";
+      for (const [cls, txt] of [["rk", String(i + 1)], ["nm", e.name], ["fl", `B${e.floor}F`], ["dt", fmtDate(e.ts)]]) {
+        const s = document.createElement("span"); s.className = cls; s.textContent = txt; li.append(s);
+      }
+      ol.append(li);
+    });
+  }
+  let boardCity = "la";
+  async function showBoard(c) {
+    boardCity = c || boardCity;
+    document.querySelectorAll("#board .tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.city === boardCity)));
+    renderList($("boardList"), await Leaderboard.top(boardCity));
+    $("menu").classList.add("hidden"); $("board").classList.remove("hidden");
+  }
+
+  function readName() {
+    const inp = $("playerName");
+    const v = inp.value.trim().slice(0, 10);
+    if (!v) {
+      inp.classList.remove("bad"); void inp.offsetWidth; inp.classList.add("bad");
+      inp.focus();
+      return null;
+    }
+    inp.classList.remove("bad");
+    prefs.name = v;
+    return v;
+  }
+  function start(c) {
+    if (c) {
+      const n = readName();
+      if (!n) return;
+      playerName = n;
+      city = c;
+    }
+    reset();
+    state = "play";
+    for (const id of ["menu", "over", "paused", "board"]) $(id).classList.add("hidden");
+    beep(660, 0.08, "square", 0.05);
+  }
+  function showMenu() {
+    state = "menu";
+    reset();
+    refreshBest();
+    for (const id of ["over", "board"]) $(id).classList.add("hidden");
+    $("menu").classList.remove("hidden");
+  }
+  function togglePause() {
+    if (state === "play") { state = "pause"; $("paused").classList.remove("hidden"); }
+    else if (state === "pause") { state = "play"; $("paused").classList.add("hidden"); last = performance.now(); }
+  }
+  async function refreshBest() {
+    for (const el of document.querySelectorAll(".best")) {
+      const top = await Leaderboard.top(el.dataset.city);
+      el.textContent = top.length ? `第一名 ${top[0].name}・B${top[0].floor}F` : "還沒有紀錄";
+    }
+  }
+
+  // 城市卡片：像素背景＋穿當地服裝的 Lucky（整數倍放大）
+  document.querySelectorAll(".city").forEach(btn => {
+    const c2 = btn.querySelector("canvas").getContext("2d");
+    c2.imageSmoothingEnabled = false;
+    const key = btn.dataset.city;
+    if (key === "la") c2.drawImage(getBg(key), 12, 180, 85, 75, 0, 0, 170, 150);
+    else c2.drawImage(getBg(key), 70, 120, 85, 75, 0, 0, 170, 150);
+    const spr = sprite(CITIES[key].outfit, 0);
+    if (key === "la") { c2.save(); c2.translate(172, 81); c2.scale(-3, 3); c2.drawImage(spr, 0, 0); c2.restore(); }
+    else c2.drawImage(spr, 0, 81, 72, 72);
+    btn.addEventListener("click", () => start(key));
+  });
+
+  $("playerName").value = prefs.name;
+  $("playerName").addEventListener("keydown", e => e.stopPropagation());
+  $("playerName").addEventListener("input", e => e.target.classList.remove("bad"));
+
+  const KEYMAP = { ArrowLeft: "left", a: "left", A: "left", ArrowRight: "right", d: "right", D: "right" };
+  addEventListener("keydown", e => {
+    if (KEYMAP[e.key]) { keys[KEYMAP[e.key]] = true; e.preventDefault(); }
+    else if (e.key === "p" || e.key === "P" || e.key === "Escape") togglePause();
+    else if ((e.key === "Enter" || e.key === " ") && state === "over") { start(); e.preventDefault(); }
+  });
+  addEventListener("keyup", e => { if (KEYMAP[e.key]) keys[KEYMAP[e.key]] = false; });
+  addEventListener("blur", () => { keys.left = keys.right = false; if (state === "play") togglePause(); });
+
+  const pointers = new Map();
+  function syncTouch() {
+    const v = [...pointers.values()];
+    keys.left = v.includes("left"); keys.right = v.includes("right");
+    $("padL").classList.toggle("on", keys.left);
+    $("padR").classList.toggle("on", keys.right);
+  }
+  cv.addEventListener("pointerdown", e => {
+    const r = cv.getBoundingClientRect();
+    pointers.set(e.pointerId, e.clientX - r.left < r.width / 2 ? "left" : "right");
+    cv.setPointerCapture(e.pointerId); syncTouch();
+  });
+  for (const [id, d] of [["padL", "left"], ["padR", "right"]]) {
+    $(id).addEventListener("pointerdown", e => { pointers.set(e.pointerId, d); $(id).setPointerCapture(e.pointerId); syncTouch(); });
+  }
+  const up = e => { pointers.delete(e.pointerId); syncTouch(); };
+  addEventListener("pointerup", up); addEventListener("pointercancel", up);
+
+  $("againBtn").addEventListener("click", () => start());
+  $("menuBtn").addEventListener("click", showMenu);
+  $("boardBtn").addEventListener("click", () => showBoard());
+  $("boardBack").addEventListener("click", showMenu);
+  document.querySelectorAll("#board .tabs button").forEach(b => b.addEventListener("click", () => showBoard(b.dataset.city)));
+
+  refreshBest();
+  reset();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
