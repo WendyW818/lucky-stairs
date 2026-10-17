@@ -158,7 +158,7 @@
         <button role="tab" data-city="bcn" aria-selected="false">🇪🇸 巴塞隆納</button>
       </div>
       <ol class="lb" id="boardList"></ol>
-      <p class="note">目前排行榜只記錄在這台裝置的瀏覽器裡</p>
+      <p class="note" id="boardNote">讀取中…</p>
       <button class="px ghost sm" id="boardBack">返回</button>
     </div>
 
@@ -217,12 +217,14 @@
   }
 
   // ===== 排行榜（目前存在本機；要上網時只要換掉這個物件） =====
-  const Leaderboard = {
+  // ===== 排行榜：有填 Firebase 設定就用線上全球排行榜，否則（或連不上時）存在本機 =====
+  const FIREBASE = { projectId: "lucky-stairs", apiKey: "AIzaSyAnu-CGVuWbeLrPPKxO8G-b-AjQ9bm8z8c" };   // 線上排行榜設定（網頁金鑰本來就是公開的，安全靠 Firestore 規則）
+
+  const LocalBoard = {
     key: c => "lucky-stairs-lb-" + c,
     async top(c) {
       try { return JSON.parse(localStorage.getItem(this.key(c)) || "[]"); } catch { return []; }
     },
-    // 回傳 { rank（1~10，沒進榜為 0）, list, id }
     async submit(c, name, floor) {
       const list = await this.top(c);
       const entry = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, floor, ts: Date.now() };
@@ -230,8 +232,72 @@
       list.sort((a, b) => b.floor - a.floor || a.ts - b.ts);
       const top = list.slice(0, 10);
       try { localStorage.setItem(this.key(c), JSON.stringify(top)); } catch {}
-      const rank = top.findIndex(e => e.id === entry.id) + 1;
-      return { rank, list: top, id: entry.id };
+      return { rank: top.findIndex(e => e.id === entry.id) + 1, list: top, id: entry.id };
+    },
+  };
+
+  // Firestore REST API（不需要載入 SDK）
+  const OnlineBoard = {
+    get enabled() { return !!(FIREBASE.projectId && FIREBASE.apiKey); },
+    url(path) { return `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents${path}?key=${FIREBASE.apiKey}`; },
+    parse(doc) {
+      const f = doc.fields || {};
+      return {
+        id: doc.name.split("/").pop(),
+        name: f.name?.stringValue || "?",
+        floor: +(f.floor?.integerValue ?? 0),
+        ts: Date.parse(f.ts?.timestampValue || 0) || 0,
+      };
+    },
+    async top(c) {
+      // 只依 floor 排序（單欄位索引免設定），同分再依時間在前端排
+      const res = await fetch(this.url(":runQuery"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ structuredQuery: {
+          from: [{ collectionId: "scores_" + c }],
+          orderBy: [{ field: { fieldPath: "floor" }, direction: "DESCENDING" }],
+          limit: 30,
+        } }),
+      });
+      if (!res.ok) throw new Error("query " + res.status);
+      const rows = (await res.json()).filter(r => r.document).map(r => this.parse(r.document));
+      return rows.sort((a, b) => b.floor - a.floor || a.ts - b.ts).slice(0, 10);
+    },
+    async submit(c, name, floor) {
+      const res = await fetch(this.url("/scores_" + c), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: {
+          name: { stringValue: name },
+          floor: { integerValue: String(floor) },
+          ts: { timestampValue: new Date().toISOString() },
+        } }),
+      });
+      if (!res.ok) throw new Error("submit " + res.status);
+      const id = (await res.json()).name.split("/").pop();
+      const list = await this.top(c);
+      return { rank: list.findIndex(e => e.id === id) + 1, list, id };
+    },
+  };
+
+  // 對外只用這個；online 代表這次是不是真的走線上
+  const Leaderboard = {
+    online: OnlineBoard.enabled,
+    async top(c) {
+      if (OnlineBoard.enabled) {
+        try { const r = await OnlineBoard.top(c); this.online = true; return r; } catch (e) { console.warn(e); }
+      }
+      this.online = false;
+      return LocalBoard.top(c);
+    },
+    async submit(c, name, floor) {
+      if (OnlineBoard.enabled) {
+        try { const r = await OnlineBoard.submit(c, name, floor); this.online = true; return r; } catch (e) { console.warn(e); }
+      }
+      this.online = false;
+      return LocalBoard.submit(c, name, floor);
+    },
+    note() {
+      return this.online ? "🌐 全球排行榜：所有玩家一起比" : (OnlineBoard.enabled ? "⚠ 連不上線上排行榜，暫時只顯示這台裝置的紀錄" : "目前排行榜只記錄在這台裝置的瀏覽器裡");
     },
   };
   const prefs = {
@@ -902,11 +968,12 @@
     const f = floors();
     $("overCity").textContent = `${playerName} 帶 Lucky 在${CITIES[city].name}到達了`;
     $("finalFloor").textContent = `B${f}F`;
-    $("rankMsg").textContent = "";
+    $("rankMsg").textContent = "上傳成績中…";
     $("overList").innerHTML = "";
     $("over").classList.remove("hidden");
     const { rank, list, id } = await Leaderboard.submit(city, playerName, f);
-    $("rankMsg").textContent = rank === 1 ? "★ 第 1 名！新紀錄！★" : rank ? `排名第 ${rank} 名！` : "這次沒進前十名，再接再厲！";
+    const scope = Leaderboard.online ? "全球" : "本機";
+    $("rankMsg").textContent = rank === 1 ? `★ ${scope}第 1 名！★` : rank ? `${scope}排名第 ${rank} 名！` : `這次沒進${scope}前十名，再接再厲！`;
     renderList($("overList"), list, id);
   }
 
@@ -1112,8 +1179,14 @@
   async function showBoard(c) {
     boardCity = c || boardCity;
     document.querySelectorAll("#board .tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.city === boardCity)));
-    renderList($("boardList"), await Leaderboard.top(boardCity));
     $("menu").classList.add("hidden"); $("board").classList.remove("hidden");
+    $("boardNote").textContent = "讀取中…";
+    $("boardList").replaceChildren();
+    const want = boardCity;
+    const list = await Leaderboard.top(want);
+    if (boardCity !== want) return;   // 讀取途中切換了分頁
+    renderList($("boardList"), list);
+    $("boardNote").textContent = Leaderboard.note();
   }
 
   function readName() {
